@@ -8,9 +8,11 @@ O site publicado fica em https://gabrigout.github.io/Tiodozap/. Cada atualizaç�
 
 ## Ativar respostas com IA
 
-O chat usa o Gemini Flash diretamente do navegador para entender e responder levando em conta as mensagens anteriores. Sem chave configurada, o modo local de respostas continua disponível.
+O chat usa o Gemini 3.8 Flash pela Interactions API diretamente do navegador para entender e responder levando em conta as mensagens anteriores. Sem chave configurada, o modo local de respostas continua disponível. As interações são enviadas sem armazenamento server-side (`store: false`).
 
 Quando há uma referência ambígua ou um fato que pode ter mudado, o Gemini pode decidir usar a pesquisa integrada do Google antes de responder. Mensagens simples não precisam de pesquisa; links usados como contexto aparecem discretamente abaixo da resposta.
+
+Se a API ficar sem cota, atingir um limite ou ficar temporariamente indisponível, TioMinion encerra a conversa com uma despedida humorística em vez de exibir um erro técnico. O encerramento fica salvo nesta conversa; use **Nova conversa** para recomeçar.
 
 1. Gere uma chave para a Gemini API no Google AI Studio.
 2. No GitHub, abra **Settings → Secrets and variables → Actions → New repository secret**.

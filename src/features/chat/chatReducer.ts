@@ -12,11 +12,11 @@ const welcomeMessage = {
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
     case "start":
-      if (state.started) return state;
+      if (state.started || state.ended) return state;
       return { ...state, started: true, messages: [welcomeMessage] };
     case "send": {
       const text = action.text.trim();
-      if (!text) return state;
+      if (!text || state.ended) return state;
       const started = state.started;
       const userMessage = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -28,6 +28,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, started: true, messages };
     }
     case "reply": {
+      if (state.ended) return state;
       if (state.messages[state.messages.length - 1]?.role !== "user") return state;
       const reply = createReply(state);
       return {
@@ -45,6 +46,26 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         stats: reply.stats,
         achievements: [...state.achievements, ...reply.achievements],
         replySequence: reply.replySequence,
+      };
+    }
+    case "end": {
+      if (state.ended || state.messages[state.messages.length - 1]?.role !== "user") return state;
+      const reply = createReply(state);
+      return {
+        ...state,
+        messages: [
+          ...state.messages,
+          {
+            id: `${Date.now()}-tio-fim`,
+            role: "tio",
+            text: action.text,
+            createdAt: Date.now(),
+          },
+        ],
+        stats: reply.stats,
+        achievements: [...state.achievements, ...reply.achievements],
+        replySequence: reply.replySequence,
+        ended: true,
       };
     }
     case "clear":

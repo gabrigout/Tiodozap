@@ -16,6 +16,7 @@ export const initialChatState: ChatState = {
   },
   achievements: [],
   replySequence: 0,
+  ended: false,
 };
 
 export function loadChatState(): ChatState {
@@ -39,7 +40,10 @@ export function loadChatState(): ChatState {
       "replySequence" in parsed &&
       typeof parsed.replySequence === "number"
     ) {
-      return parsed as ChatState;
+      return {
+        ...parsed,
+        ended: "ended" in parsed && typeof parsed.ended === "boolean" ? parsed.ended : false,
+      } as ChatState;
     }
   } catch (error) {
     console.error("Não foi possível restaurar a conversa salva.", error);

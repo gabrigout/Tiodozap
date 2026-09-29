@@ -6,7 +6,8 @@ import Composer from "./components/Composer";
 import MessageBubble from "./components/MessageBubble";
 import TypingIndicator from "./components/TypingIndicator";
 import { chatReducer } from "./features/chat/chatReducer";
-import { generateGeminiReply, GeminiError, isGeminiEnabled } from "./features/chat/gemini";
+import { generateGeminiReply, isGeminiEnabled } from "./features/chat/gemini";
+import { pickConversationEnding } from "./features/chat/responses";
 import { clearSavedChat, loadChatState, saveChatState } from "./features/chat/storage";
 
 const quickPrompts = [
@@ -20,13 +21,11 @@ export default function App() {
   const [activeToast, setActiveToast] = useState<string | null>(null);
   const [toastQueue, setToastQueue] = useState<string[]>([]);
   const [toastKey, setToastKey] = useState(0);
-  const [aiNotice, setAiNotice] = useState<string | null>(null);
-  const [failedMessageId, setFailedMessageId] = useState<string | null>(null);
   const scrollContainer = useRef<HTMLDivElement>(null);
   const lastAchievementCount = useRef(state.achievements.length);
   const latestMessage = state.messages[state.messages.length - 1];
   const lastUserMessage = latestMessage?.role === "user" ? latestMessage : null;
-  const isTyping = Boolean(lastUserMessage && lastUserMessage.id !== failedMessageId);
+  const isTyping = Boolean(lastUserMessage && !state.ended);
 
   useEffect(() => {
     saveChatState(state);
@@ -47,12 +46,8 @@ export default function App() {
         }
       } catch (error) {
         if (controller.signal.aborted) return;
-        setAiNotice(
-          error instanceof GeminiError
-            ? error.message
-            : "A IA não conseguiu responder. Confira sua conexão e tente novamente.",
-        );
-        setFailedMessageId(lastUserMessage.id);
+        console.warn("O TioMinion encerrou a conversa após uma falha temporária.");
+        dispatch({ type: "end", text: pickConversationEnding() });
       }
     }, isGeminiEnabled() ? 350 : 850);
     return () => {
@@ -87,22 +82,13 @@ export default function App() {
   }, []);
 
   function sendMessage(text: string) {
-    setAiNotice(null);
-    setFailedMessageId(null);
     dispatch({ type: "send", text });
-  }
-
-  function retryReply() {
-    setAiNotice(null);
-    setFailedMessageId(null);
   }
 
   function newConversation() {
     if (!window.confirm("Apagar esta conversa e começar outra?")) return;
     clearSavedChat();
     dispatch({ type: "clear" });
-    setAiNotice(null);
-    setFailedMessageId(null);
     setToastQueue([]);
     setActiveToast(null);
     lastAchievementCount.current = 0;
@@ -171,12 +157,9 @@ export default function App() {
                 <div className="day-divider"><span>HOJE, NO GRUPO</span></div>
                 {state.messages.map((message) => <MessageBubble key={message.id} message={message} />)}
                 {isTyping && <TypingIndicator />}
-                {aiNotice && (
-                  <div className="ai-notice" role="status">
-                    <span>{aiNotice}</span>
-                    {failedMessageId && (
-                      <button type="button" onClick={retryReply}>Tentar novamente</button>
-                    )}
+                {state.ended && (
+                  <div className="conversation-ended" role="status">
+                    O TioMinion encerrou o expediente por aqui. Comece uma nova conversa se quiser chamar ele de volta.
                   </div>
                 )}
                 {!isTyping && state.messages.length > 1 && (
@@ -185,8 +168,13 @@ export default function App() {
               </div>
             )}
           </div>
-          {state.started ? (
+          {state.started && !state.ended ? (
             <Composer disabled={isTyping} onSend={sendMessage} />
+          ) : state.ended ? (
+            <div className="composer composer--ended">
+              <span>O tio foi resolver umas coisas. Debate encerrado por hoje.</span>
+              <button type="button" onClick={newConversation}>Nova conversa</button>
+            </div>
           ) : (
             <div className="composer composer--locked">
               <span>Comece a conversa pra mandar sua mensagem</span>

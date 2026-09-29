@@ -95,3 +95,22 @@ export const irritationPrefixes = [
   "Não vou ficar discutindo isso com você, mas só mais uma coisa: ",
   "Última vez que eu falo: ",
 ];
+
+export const conversationEndings = [
+  "chega por hoje kkkkk tenho mais o que fazer",
+  "vou parar por aqui que tenho trabalho",
+  "já deu dessa discussão, depois a gente continua",
+  "cansei de explicar o óbvio, tenho coisa pra fazer",
+  "não vou ficar discutindo o dia inteiro não",
+  "tenho mais o que fazer da vida, depois a gente conversa",
+  "vou nessa que meu trabalho não vai se fazer sozinho",
+  "pronto, acabou meu expediente de debate",
+  "já perdi tempo demais aqui, vou trabalhar",
+  "chega, tenho conta pra pagar",
+  "não tenho o dia inteiro pra ficar discutindo política",
+  "vou deixar você pensando nisso aí",
+];
+
+export function pickConversationEnding() {
+  return conversationEndings[Math.floor(Math.random() * conversationEndings.length)];
+}
