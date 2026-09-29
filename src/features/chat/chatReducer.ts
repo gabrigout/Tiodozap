@@ -5,7 +5,7 @@ import type { ChatAction, ChatState } from "./types";
 const welcomeMessage = {
   id: "welcome",
   role: "tio" as const,
-  text: "Aí, apareceu! Pode falar que eu tenho opinião formada. Se eu não souber, conheço alguém que sabe — ou pelo menos um vídeo.",
+  text: "Aí, apareceu! Sou palmeirense, votei no Bolsonaro e tenho opinião formada — mas não me confunde com qualquer tio do grupo, viu? Cada um tem sua história. Manda o assunto: eu respondo sem precisar transformar tudo em política... quer dizer, vou tentar.",
   createdAt: Date.now(),
 };
 

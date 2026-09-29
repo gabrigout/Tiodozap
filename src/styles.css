@@ -192,9 +192,9 @@ button { color: inherit; }
 .fiction-badge { padding: 3px 5px 2px; border-radius: 4px; background: #f3f2e9; color: #929276; font-size: 7px; font-weight: 700; letter-spacing: .75px; }
 
 .avatar { position: relative; flex: 0 0 auto; width: 39px; height: 39px; }
-.avatar svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.avatar img { display: block; width: 100%; height: 100%; border: 1px solid rgba(221, 238, 219, .24); border-radius: 50%; object-fit: cover; object-position: center center; }
 .avatar--large { width: 94px; height: 94px; }
-.avatar__status { position: absolute; right: -1px; bottom: 0; width: 10px; height: 10px; border: 2px solid white; border-radius: 50%; background: #76a76a; }
+.avatar__status { position: absolute; right: -1px; bottom: 0; width: 10px; height: 10px; border: 2px solid #101b15; border-radius: 50%; background: #76a76a; }
 .avatar--large .avatar__status { right: 2px; bottom: 4px; width: 14px; height: 14px; }
 
 .new-chat-button {

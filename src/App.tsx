@@ -123,7 +123,7 @@ export default function App() {
         </aside>
 
         <section className="chat-card" aria-label="Conversa com TioMinion">
-          <ChatHeader started={state.started} aiEnabled={isGeminiEnabled()} onNewConversation={newConversation} />
+          <ChatHeader started={state.started} onNewConversation={newConversation} />
           <div className="chat-context">
             <span className="chat-context__icon">✳</span>
             <span>{isGeminiEnabled() ? "Conversa com IA · TioMinion é um personagem fictício de humor" : "Modo de demonstração · Configure a IA para conversas com contexto"}</span>
@@ -137,7 +137,7 @@ export default function App() {
                   <Avatar size="large" />
                   <span className="welcome-screen__bubble">bom dia ☀️</span>
                 </div>
-                <span className="welcome-screen__overline">O TIO JÁ ESTÁ NO GRUPO</span>
+                <span className="welcome-screen__overline">O TIO JÁ ESTÁ ONLINE</span>
                 <h3>Pronto pra uma<br />conversa <em>inesquecível?</em></h3>
                 <p>Puxe qualquer assunto. Ele provavelmente vai discordar — com muita confiança e zero fontes verificáveis.</p>
                 <button className="start-button" type="button" onClick={() => dispatch({ type: "start" })}>

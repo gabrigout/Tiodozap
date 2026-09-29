@@ -2,11 +2,10 @@ import Avatar from "./Avatar";
 
 type ChatHeaderProps = {
   started: boolean;
-  aiEnabled: boolean;
   onNewConversation: () => void;
 };
 
-export default function ChatHeader({ started, aiEnabled, onNewConversation }: ChatHeaderProps) {
+export default function ChatHeader({ started, onNewConversation }: ChatHeaderProps) {
   return (
     <header className="chat-header">
       <div className="chat-header__identity">
@@ -16,7 +15,7 @@ export default function ChatHeader({ started, aiEnabled, onNewConversation }: Ch
             <h1>TioMinion</h1>
             <span className="fiction-badge">FICTÍCIO</span>
           </div>
-          <p><span className={`online-dot ${aiEnabled ? "" : "online-dot--local"}`} /> {aiEnabled ? "IA ligada · pronta pro debate" : "modo local · esperando assunto"}</p>
+          <p><span className="online-dot" /> online agora</p>
         </div>
       </div>
       {started && (
