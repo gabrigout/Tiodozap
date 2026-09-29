@@ -37,8 +37,14 @@ export default function App() {
     const controller = new AbortController();
     const timeout = window.setTimeout(async () => {
       try {
-        const text = await generateGeminiReply(state.messages, state.stats, controller.signal);
-        if (!controller.signal.aborted) dispatch({ type: "reply", text: text ?? undefined });
+        const reply = await generateGeminiReply(state.messages, state.stats, controller.signal);
+        if (!controller.signal.aborted) {
+          dispatch({
+            type: "reply",
+            text: reply?.text,
+            sources: reply?.sources,
+          });
+        }
       } catch (error) {
         if (controller.signal.aborted) return;
         setAiNotice(

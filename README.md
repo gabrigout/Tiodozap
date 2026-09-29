@@ -10,6 +10,8 @@ O site publicado fica em https://gabrigout.github.io/Tiodozap/. Cada atualizaç�
 
 O chat usa o Gemini Flash diretamente do navegador para entender e responder levando em conta as mensagens anteriores. Sem chave configurada, o modo local de respostas continua disponível.
 
+Quando há uma referência ambígua ou um fato que pode ter mudado, o Gemini pode decidir usar a pesquisa integrada do Google antes de responder. Mensagens simples não precisam de pesquisa; links usados como contexto aparecem discretamente abaixo da resposta.
+
 1. Gere uma chave para a Gemini API no Google AI Studio.
 2. No GitHub, abra **Settings → Secrets and variables → Actions → New repository secret**.
 3. Crie o segredo `GEMINI_API_KEY` com a chave.

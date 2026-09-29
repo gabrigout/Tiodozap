@@ -499,6 +499,11 @@ body { background: #0a120f; }
 .ai-notice { align-self: center; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 12px; max-width: 90%; padding: 9px 12px; border: 1px solid #655833; border-radius: 10px; background: #2b2719; color: #e4d38a; font-size: 10px; line-height: 1.55; text-align: center; }
 .ai-notice button { padding: 5px 9px; border: 1px solid #7c7041; border-radius: 7px; background: #3b341f; color: #f0dfa0; cursor: pointer; font-size: 9px; font-weight: 700; }
 .ai-notice button:hover { background: #4a4126; }
+.message-sources { margin-top: 8px; border-top: 1px solid rgba(143, 181, 145, .2); padding-top: 6px; }
+.message-sources summary { color: #a8c7a6; cursor: pointer; font-size: 8px; font-weight: 600; }
+.message-sources__links { display: flex; flex-direction: column; gap: 5px; margin-top: 7px; }
+.message-sources__links a { overflow: hidden; color: #c4d4be; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.message-sources__links a:hover { color: #f0d75c; }
 
 @media (max-width: 700px) {
   .chat-card { border-color: #293c31; }
