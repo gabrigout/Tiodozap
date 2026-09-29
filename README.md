@@ -14,6 +14,8 @@ Quando há uma referência ambígua ou um fato que pode ter mudado, o Gemini pod
 
 Se a API ficar sem cota, atingir um limite ou ficar temporariamente indisponível, TioMinion encerra a conversa com uma despedida humorística em vez de exibir um erro técnico. O encerramento fica salvo nesta conversa; use **Nova conversa** para recomeçar.
 
+Erros de configuração da chave ou do modelo não encerram o chat: aparece um aviso amigável com a opção **Tentar novamente**.
+
 1. Gere uma chave para a Gemini API no Google AI Studio.
 2. No GitHub, abra **Settings → Secrets and variables → Actions → New repository secret**.
 3. Crie o segredo `GEMINI_API_KEY` com a chave.

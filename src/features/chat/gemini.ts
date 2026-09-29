@@ -38,7 +38,17 @@ type GeminiResponse = {
   error?: { message?: string };
 };
 
-export class GeminiError extends Error {}
+export type GeminiFailureKind = "quota" | "temporary" | "configuration";
+
+export class GeminiError extends Error {
+  constructor(
+    message: string,
+    readonly kind: GeminiFailureKind,
+  ) {
+    super(message);
+    this.name = "GeminiError";
+  }
+}
 
 export type GeminiReply = {
   text: string;
@@ -89,18 +99,27 @@ export async function generateGeminiReply(
     });
   } catch (error) {
     if (signal.aborted) throw error;
-    throw new GeminiError("A conexão caiu.");
+    throw new GeminiError("A conexão caiu.", "temporary");
   }
 
   let data: GeminiResponse;
   try {
     data = (await response.json()) as GeminiResponse;
   } catch {
-    throw new GeminiError("A IA retornou uma resposta inválida. Tente novamente.");
+    throw new GeminiError("A IA retornou uma resposta inválida.", "configuration");
   }
 
   if (!response.ok) {
-    throw new GeminiError(data.error?.message ?? `A API respondeu com status ${response.status}.`);
+    const errorText = data.error?.message ?? "";
+    const isQuota = response.status === 429 || /quota|rate.?limit|resource.?exhausted|token limit/i.test(errorText);
+    const isTemporary = [408, 425, 500, 502, 503, 504].includes(response.status);
+    if (isQuota) {
+      throw new GeminiError("O Gemini atingiu o limite de uso.", "quota");
+    }
+    if (isTemporary) {
+      throw new GeminiError("O Gemini está temporariamente indisponível.", "temporary");
+    }
+    throw new GeminiError("A configuração do Gemini precisa ser conferida.", "configuration");
   }
 
   const output = data.steps?.filter((step) => step.type === "model_output") ?? [];
@@ -111,7 +130,7 @@ export async function generateGeminiReply(
     .join("")
     .trim();
 
-  if (!text) throw new GeminiError("A IA não gerou uma resposta. Tente reformular a mensagem.");
+  if (!text) throw new GeminiError("A IA não retornou uma resposta.", "configuration");
 
   const sources = new Map<string, Source>();
   for (const content of output.flatMap((step) => step.content ?? [])) {
