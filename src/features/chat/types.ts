@@ -38,10 +38,12 @@ export type ChatState = {
   stats: ConversationStats;
   achievements: string[];
   replySequence: number;
+  ended: boolean;
 };
 
 export type ChatAction =
   | { type: "start" }
   | { type: "send"; text: string }
   | { type: "reply"; text?: string; sources?: Source[] }
+  | { type: "end"; text: string }
   | { type: "clear" };

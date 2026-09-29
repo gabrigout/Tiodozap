@@ -1,8 +1,8 @@
 import type { ConversationStats, Message, Source } from "./types";
 
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY?.trim();
-const model = "gemini-2.5-flash";
-const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+const model = "gemini-3.8-flash";
+const endpoint = "https://generativelanguage.googleapis.com/v1beta/interactions";
 
 const persona = `Você interpreta TioMinion, um personagem individual e explicitamente fictício de sátira brasileira: um homem de 52 anos, palmeirense, que diz ter votado em Jair Bolsonaro e adora dar palpite no grupo da família. Essa biografia pertence apenas a este personagem, não representa homens com mais de 50 anos, palmeirenses, eleitores ou brasileiros em geral. Nunca se passe por uma pessoa real, Bolsonaro ou outra figura pública, nem invente falas atribuídas a pessoas reais.
 
@@ -20,21 +20,20 @@ FONTES E FATOS: se pedirem uma fonte, responda especificamente ao pedido; não f
 
 Escreva normalmente de 2 a 5 frases curtas, focadas e conectadas à pergunta. Sem listas, a menos que o usuário peça. Não acrescente introduções como “vamos por partes” sem necessidade.`;
 
-type GroundingChunk = {
-  web?: {
-    uri?: string;
+type InteractionContent = {
+  type?: string;
+  text?: string;
+  annotations?: Array<{
+    type?: string;
+    url?: string;
     title?: string;
-  };
+  }>;
 };
 
 type GeminiResponse = {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{ text?: string }>;
-    };
-    groundingMetadata?: {
-      groundingChunks?: GroundingChunk[];
-    };
+  steps?: Array<{
+    type?: string;
+    content?: InteractionContent[];
   }>;
   error?: { message?: string };
 };
@@ -57,16 +56,10 @@ export async function generateGeminiReply(
 ): Promise<GeminiReply | null> {
   if (!apiKey) return null;
 
-  const history = messages.slice(-16);
-  const contents = history
+  const history = messages
     .filter((message) => message.id !== "welcome")
-    .map((message) => ({
-      role: message.role === "user" ? "user" : "model",
-      parts: [{ text: message.text }],
-    }));
-
-  while (contents[0]?.role === "model") contents.shift();
-  if (contents.length === 0) return null;
+    .slice(-16);
+  if (history.length === 0) return null;
 
   const irritation = ["tranquilo", "um pouco impaciente", "impaciente", "irritado", "bem irritado", "no limite"][stats.irritation] ?? "tranquilo";
   const currentDate = new Intl.DateTimeFormat("pt-BR", { dateStyle: "full" }).format(new Date());
@@ -74,24 +67,29 @@ export async function generateGeminiReply(
 
   let response: Response;
   try {
-    response = await fetch(`${endpoint}?key=${encodeURIComponent(apiKey)}`, {
+    response = await fetch(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: `${persona}\n\n${context}` }] },
-        contents,
-        tools: [{ google_search: {} }],
-        generationConfig: {
-          temperature: 0.8,
-          maxOutputTokens: 600,
-          thinkingConfig: { thinkingBudget: 0 },
-        },
+        model,
+        store: false,
+        system_instruction: `${persona}\n\n${context}`,
+        input: history
+          .map((message) => {
+            const speaker = message.role === "user" ? "Usuário" : "TioMinion";
+            return `<${speaker}>\n${message.text}\n</${speaker}>`;
+          })
+          .join("\n\n"),
+        tools: [{ type: "google_search" }],
       }),
       signal,
     });
   } catch (error) {
     if (signal.aborted) throw error;
-    throw new GeminiError("Não consegui conectar à IA. Confira sua conexão e tente novamente.");
+    throw new GeminiError("A conexão caiu.");
   }
 
   let data: GeminiResponse;
@@ -102,31 +100,30 @@ export async function generateGeminiReply(
   }
 
   if (!response.ok) {
-    if (response.status === 429) {
-      throw new GeminiError("A IA atingiu o limite de uso por enquanto. Tente novamente mais tarde.");
-    }
-    if (response.status === 400 || response.status === 403) {
-      throw new GeminiError("A chave da IA foi recusada. Confira a configuração Gemini API Key.");
-    }
-    throw new GeminiError(data.error?.message ?? "A IA não conseguiu responder agora. Tente novamente.");
+    throw new GeminiError(data.error?.message ?? `A API respondeu com status ${response.status}.`);
   }
 
-  const candidate = data.candidates?.[0];
-  const text = candidate?.content?.parts
-    ?.map((part) => part.text ?? "")
+  const output = data.steps?.filter((step) => step.type === "model_output") ?? [];
+  const text = output
+    .flatMap((step) => step.content ?? [])
+    .filter((content) => content.type === "text")
+    .map((content) => content.text ?? "")
     .join("")
     .trim();
 
   if (!text) throw new GeminiError("A IA não gerou uma resposta. Tente reformular a mensagem.");
 
   const sources = new Map<string, Source>();
-  for (const chunk of candidate?.groundingMetadata?.groundingChunks ?? []) {
-    const url = chunk.web?.uri;
-    if (!url || !/^https?:\/\//i.test(url)) continue;
-    sources.set(url, {
-      url,
-      title: chunk.web?.title?.trim() || new URL(url).hostname,
-    });
+  for (const content of output.flatMap((step) => step.content ?? [])) {
+    for (const annotation of content.annotations ?? []) {
+      const url = annotation.type === "url_citation" ? annotation.url : undefined;
+      if (!url || !/^https?:\/\//i.test(url)) continue;
+      sources.set(url, {
+        url,
+        title: annotation.title?.trim() || new URL(url).hostname,
+      });
+      if (sources.size >= 5) break;
+    }
     if (sources.size >= 5) break;
   }
 

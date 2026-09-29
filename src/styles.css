@@ -496,9 +496,10 @@ body { background: #0a120f; }
 .achievement-toast__label { color: #a9bd97; }
 .achievement-toast strong { color: #e0ece0; }
 .achievement-toast button { color: #a4b2a7; }
-.ai-notice { align-self: center; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 12px; max-width: 90%; padding: 9px 12px; border: 1px solid #655833; border-radius: 10px; background: #2b2719; color: #e4d38a; font-size: 10px; line-height: 1.55; text-align: center; }
-.ai-notice button { padding: 5px 9px; border: 1px solid #7c7041; border-radius: 7px; background: #3b341f; color: #f0dfa0; cursor: pointer; font-size: 9px; font-weight: 700; }
-.ai-notice button:hover { background: #4a4126; }
+.conversation-ended { align-self: center; max-width: 90%; padding: 9px 12px; border: 1px solid #655833; border-radius: 10px; background: #2b2719; color: #e4d38a; font-size: 9px; line-height: 1.55; text-align: center; }
+.composer--ended { align-items: center; justify-content: space-between; min-height: 64px; padding: 10px 16px; background: #111c15; color: #a8b4a7; font-size: 9px; }
+.composer--ended button { flex: 0 0 auto; padding: 8px 11px; border: 1px solid #45694a; border-radius: 8px; background: #1c3825; color: #dcebdd; cursor: pointer; font-size: 9px; font-weight: 700; }
+.composer--ended button:hover { background: #25472f; }
 .message-sources { margin-top: 8px; border-top: 1px solid rgba(143, 181, 145, .2); padding-top: 6px; }
 .message-sources summary { color: #a8c7a6; cursor: pointer; font-size: 8px; font-weight: 600; }
 .message-sources__links { display: flex; flex-direction: column; gap: 5px; margin-top: 7px; }
