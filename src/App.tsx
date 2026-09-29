@@ -21,11 +21,12 @@ export default function App() {
   const [toastQueue, setToastQueue] = useState<string[]>([]);
   const [toastKey, setToastKey] = useState(0);
   const [aiNotice, setAiNotice] = useState<string | null>(null);
+  const [failedMessageId, setFailedMessageId] = useState<string | null>(null);
   const scrollContainer = useRef<HTMLDivElement>(null);
   const lastAchievementCount = useRef(state.achievements.length);
   const latestMessage = state.messages[state.messages.length - 1];
   const lastUserMessage = latestMessage?.role === "user" ? latestMessage : null;
-  const isTyping = Boolean(lastUserMessage);
+  const isTyping = Boolean(lastUserMessage && lastUserMessage.id !== failedMessageId);
 
   useEffect(() => {
     saveChatState(state);
@@ -43,9 +44,9 @@ export default function App() {
         setAiNotice(
           error instanceof GeminiError
             ? error.message
-            : "A IA não respondeu. O TioMinion usou a resposta local desta vez.",
+            : "A IA não conseguiu responder. Confira sua conexão e tente novamente.",
         );
-        dispatch({ type: "reply" });
+        setFailedMessageId(lastUserMessage.id);
       }
     }, isGeminiEnabled() ? 350 : 850);
     return () => {
@@ -81,7 +82,13 @@ export default function App() {
 
   function sendMessage(text: string) {
     setAiNotice(null);
+    setFailedMessageId(null);
     dispatch({ type: "send", text });
+  }
+
+  function retryReply() {
+    setAiNotice(null);
+    setFailedMessageId(null);
   }
 
   function newConversation() {
@@ -89,6 +96,7 @@ export default function App() {
     clearSavedChat();
     dispatch({ type: "clear" });
     setAiNotice(null);
+    setFailedMessageId(null);
     setToastQueue([]);
     setActiveToast(null);
     lastAchievementCount.current = 0;
@@ -157,7 +165,14 @@ export default function App() {
                 <div className="day-divider"><span>HOJE, NO GRUPO</span></div>
                 {state.messages.map((message) => <MessageBubble key={message.id} message={message} />)}
                 {isTyping && <TypingIndicator />}
-                {aiNotice && <div className="ai-notice" role="status">{aiNotice}</div>}
+                {aiNotice && (
+                  <div className="ai-notice" role="status">
+                    <span>{aiNotice}</span>
+                    {failedMessageId && (
+                      <button type="button" onClick={retryReply}>Tentar novamente</button>
+                    )}
+                  </div>
+                )}
                 {!isTyping && state.messages.length > 1 && (
                   <div className="conversation-footnote">As mensagens ficam salvas neste navegador. O bom senso, nem sempre.</div>
                 )}
