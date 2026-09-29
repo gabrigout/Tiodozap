@@ -37,7 +37,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           {
             id: `${Date.now()}-tio`,
             role: "tio",
-            text: reply.text,
+            text: action.text ?? reply.text,
             createdAt: Date.now(),
           },
         ],

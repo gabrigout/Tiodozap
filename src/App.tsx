@@ -6,6 +6,7 @@ import Composer from "./components/Composer";
 import MessageBubble from "./components/MessageBubble";
 import TypingIndicator from "./components/TypingIndicator";
 import { chatReducer } from "./features/chat/chatReducer";
+import { generateGeminiReply, GeminiError, isGeminiEnabled } from "./features/chat/gemini";
 import { clearSavedChat, loadChatState, saveChatState } from "./features/chat/storage";
 
 const quickPrompts = [
@@ -19,6 +20,7 @@ export default function App() {
   const [activeToast, setActiveToast] = useState<string | null>(null);
   const [toastQueue, setToastQueue] = useState<string[]>([]);
   const [toastKey, setToastKey] = useState(0);
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
   const scrollContainer = useRef<HTMLDivElement>(null);
   const lastAchievementCount = useRef(state.achievements.length);
   const latestMessage = state.messages[state.messages.length - 1];
@@ -30,10 +32,27 @@ export default function App() {
   }, [state]);
 
   useEffect(() => {
-    if (!isTyping) return;
-    const timeout = window.setTimeout(() => dispatch({ type: "reply" }), 850 + Math.random() * 650);
-    return () => window.clearTimeout(timeout);
-  }, [isTyping, lastUserMessage?.id]);
+    if (!isTyping || !lastUserMessage) return;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      try {
+        const text = await generateGeminiReply(state.messages, state.stats, controller.signal);
+        if (!controller.signal.aborted) dispatch({ type: "reply", text: text ?? undefined });
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setAiNotice(
+          error instanceof GeminiError
+            ? error.message
+            : "A IA não respondeu. O TioMinion usou a resposta local desta vez.",
+        );
+        dispatch({ type: "reply" });
+      }
+    }, isGeminiEnabled() ? 350 : 850);
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [isTyping, lastUserMessage?.id, state.messages, state.stats]);
 
   useEffect(() => {
     const container = scrollContainer.current;
@@ -61,6 +80,7 @@ export default function App() {
   }, []);
 
   function sendMessage(text: string) {
+    setAiNotice(null);
     dispatch({ type: "send", text });
   }
 
@@ -68,6 +88,7 @@ export default function App() {
     if (!window.confirm("Apagar esta conversa e começar outra?")) return;
     clearSavedChat();
     dispatch({ type: "clear" });
+    setAiNotice(null);
     setToastQueue([]);
     setActiveToast(null);
     lastAchievementCount.current = 0;
@@ -102,10 +123,10 @@ export default function App() {
         </aside>
 
         <section className="chat-card" aria-label="Conversa com TioMinion">
-          <ChatHeader started={state.started} onNewConversation={newConversation} />
+          <ChatHeader started={state.started} aiEnabled={isGeminiEnabled()} onNewConversation={newConversation} />
           <div className="chat-context">
             <span className="chat-context__icon">✳</span>
-            <span>Personagem fictício de humor. Nenhuma opinião aqui é notícia.</span>
+            <span>{isGeminiEnabled() ? "Conversa com IA · TioMinion é um personagem fictício de humor" : "Modo de demonstração · Configure a IA para conversas com contexto"}</span>
           </div>
           <div className="conversation" ref={scrollContainer} aria-live="polite">
             {!state.started ? (
@@ -136,6 +157,7 @@ export default function App() {
                 <div className="day-divider"><span>HOJE, NO GRUPO</span></div>
                 {state.messages.map((message) => <MessageBubble key={message.id} message={message} />)}
                 {isTyping && <TypingIndicator />}
+                {aiNotice && <div className="ai-notice" role="status">{aiNotice}</div>}
                 {!isTyping && state.messages.length > 1 && (
                   <div className="conversation-footnote">As mensagens ficam salvas neste navegador. O bom senso, nem sempre.</div>
                 )}

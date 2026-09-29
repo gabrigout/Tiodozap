@@ -6,6 +6,19 @@ Uma conversa de grupo de família, sem o grupo de família. O TioMinion é um pe
 
 O site publicado fica em https://gabrigout.github.io/Tiodozap/. Cada atualização enviada para a branch `main` é publicada automaticamente pelo GitHub Actions; a atualização pode levar alguns minutos para aparecer.
 
+## Ativar respostas com IA
+
+O chat usa o Gemini Flash diretamente do navegador para entender e responder levando em conta as mensagens anteriores. Sem chave configurada, o modo local de respostas continua disponível.
+
+1. Gere uma chave para a Gemini API no Google AI Studio.
+2. No GitHub, abra **Settings → Secrets and variables → Actions → New repository secret**.
+3. Crie o segredo `GEMINI_API_KEY` com a chave.
+4. Execute novamente o workflow **Deploy to GitHub Pages**, na aba **Actions**.
+
+Para desenvolvimento local, copie `.env.example` para `.env.local`, preencha `VITE_GEMINI_API_KEY` e rode `npm run dev`.
+
+**Importante:** por ser um site estático, a chave usada pelo navegador pode ser vista pelos visitantes. Restrinja a chave à Gemini API e ao domínio do site e configure limites de uso no Google Cloud. Chamadas à API podem estar sujeitas a limites ou cobrança conforme a conta e o uso.
+
 ## Rodar localmente
 
 Requer Node.js 18 ou superior.
