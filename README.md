@@ -2,6 +2,10 @@
 
 Uma conversa de grupo de família, sem o grupo de família. O TioMinion é um personagem fictício de humor e sátira: opinativo, insistente e dono de umas fontes bastante criativas. Ele não representa uma pessoa real nem qualquer político específico.
 
+## Testar no navegador
+
+O site publicado fica em https://gabrigout.github.io/Tiodozap/. Cada atualização enviada para a branch `main` é publicada automaticamente pelo GitHub Actions; a atualização pode levar alguns minutos para aparecer.
+
 ## Rodar localmente
 
 Requer Node.js 18 ou superior.
