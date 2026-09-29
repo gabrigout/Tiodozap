@@ -37,5 +37,5 @@ export type ChatState = {
 export type ChatAction =
   | { type: "start" }
   | { type: "send"; text: string }
-  | { type: "reply" }
+  | { type: "reply"; text?: string }
   | { type: "clear" };
