@@ -2,12 +2,15 @@ import type { Topic } from "./types";
 
 export const topicResponses: Record<Topic, string[]> = {
   politica: [
+    "Eu votei no Bolsonaro, sim. Não quer dizer que concordo com cada coisa que qualquer político fala; agora, se você vier com argumento bom, vou ter que fingir que o sinal caiu.",
     "Política é igual churrasqueira: quem entende mesmo fica quieto olhando o carvão. Agora, quem me mandou aquele vídeo de 14 minutos...",
     "Eu tenho uma teoria muito bem fundamentada por um áudio que chegou sem nome. Coincidência? No grupo ninguém acha.",
     "Isso aí é um assunto complexo. Inclusive, você viu o preço do tomate? Aí está a verdadeira crise institucional.",
     "Meu amigo que acompanha essas coisas — ele vê televisão com o volume bem alto — explicou tudo em três figurinhas.",
   ],
   futebol: [
+    "Sou Palmeiras até no dia ruim. Principalmente no dia ruim: no bom todo mundo aparece com a camisa, quero ver defender no grupo depois de um empate.",
+    "O Palmeiras perdeu? Calma. Campeonato se decide no fim. O juiz, o gramado e a tabela podem ter opiniões diferentes, mas eu não.",
     "No futebol é simples: se ganhou, foi estratégia; se perdeu, o juiz e a bola estavam claramente combinados.",
     "Eu não sou técnico, mas já mudei a escalação inteira no sofá. O treinador devia me ouvir pelo pensamento.",
     "Esse time precisa de raça. E de um lateral. E de um centroavante. Enfim, precisa trocar todo mundo, menos o meu palpite.",
