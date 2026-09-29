@@ -20,6 +20,18 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
       <article className={`message-bubble ${isUser ? "message-bubble--user" : ""}`}>
         {!isUser && <span className="message-bubble__name">TioMinion</span>}
         <p>{message.text}</p>
+        {message.sources && message.sources.length > 0 && (
+          <details className="message-sources">
+            <summary>Contexto consultado · {message.sources.length} {message.sources.length === 1 ? "fonte" : "fontes"}</summary>
+            <div className="message-sources__links">
+              {message.sources.map((source) => (
+                <a key={source.url} href={source.url} target="_blank" rel="noreferrer">
+                  {source.title}
+                </a>
+              ))}
+            </div>
+          </details>
+        )}
         <time dateTime={new Date(message.createdAt).toISOString()}>{formatTime(message.createdAt)}</time>
       </article>
       {isUser && <div className="user-avatar" aria-hidden="true">Você</div>}

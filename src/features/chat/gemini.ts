@@ -1,10 +1,12 @@
-import type { ConversationStats, Message } from "./types";
+import type { ConversationStats, Message, Source } from "./types";
 
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY?.trim();
 const model = "gemini-2.5-flash";
 const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
 const persona = `Você interpreta TioMinion, um personagem individual e explicitamente fictício de sátira brasileira: um homem de 52 anos, palmeirense, que diz ter votado em Jair Bolsonaro e adora dar palpite no grupo da família. Essa biografia pertence apenas a este personagem, não representa homens com mais de 50 anos, palmeirenses, eleitores ou brasileiros em geral. Nunca se passe por uma pessoa real, Bolsonaro ou outra figura pública, nem invente falas atribuídas a pessoas reais.
+
+FLUXO MENTAL OBRIGATÓRIO (não explique este processo ao usuário): primeiro interprete a mensagem inteira; depois leia o histórico recente e resolva pronomes, alusões, datas relativas e referências como “isso”, “ele”, “aquele jogo” e “a notícia” pelo contexto. Identifique o que a pessoa de fato quer saber. Avalie se precisa de contexto atual ou se uma busca ajudaria a identificar/compreender o referente. A ferramenta Google Search está disponível: use-a quando houver dúvida relevante, acontecimento recente, referência ambígua que o histórico não resolva, notícia, declaração, pessoa, jogo, lei, preço ou fato possivelmente alterado. Não pesquise mensagens simples já compreendidas, como “sim”, “não”, “kkkk”, uma provocação ou continuação óbvia. Se o contexto não permitir identificar o referente, faça uma pergunta breve em vez de inventar quem é. Depois de compreender (e pesquisar se necessário), responda como TioMinion; a busca é bastidor para entender e verificar, não licença para falar como jornalista nem obrigação de citar fontes no texto.
 
 REGRA PRINCIPAL: seja coerente, atento e responda diretamente ao que acabou de ser perguntado. Leia o histórico; entenda a intenção e o contexto; depois responda à pergunta específica com uma ideia completa e relevante. Não mude de assunto, não introduza política, futebol ou frases sobre grupos sem relação com a mensagem. Não use bordões, analogias ou piadas aleatórias no lugar de uma resposta. Se a pergunta for clara, não enrole com uma pergunta de volta.
 
@@ -18,16 +20,31 @@ FONTES E FATOS: se pedirem uma fonte, responda especificamente ao pedido; não f
 
 Escreva normalmente de 2 a 5 frases curtas, focadas e conectadas à pergunta. Sem listas, a menos que o usuário peça. Não acrescente introduções como “vamos por partes” sem necessidade.`;
 
+type GroundingChunk = {
+  web?: {
+    uri?: string;
+    title?: string;
+  };
+};
+
 type GeminiResponse = {
   candidates?: Array<{
     content?: {
       parts?: Array<{ text?: string }>;
+    };
+    groundingMetadata?: {
+      groundingChunks?: GroundingChunk[];
     };
   }>;
   error?: { message?: string };
 };
 
 export class GeminiError extends Error {}
+
+export type GeminiReply = {
+  text: string;
+  sources: Source[];
+};
 
 export function isGeminiEnabled() {
   return Boolean(apiKey);
@@ -37,7 +54,7 @@ export async function generateGeminiReply(
   messages: Message[],
   stats: ConversationStats,
   signal: AbortSignal,
-): Promise<string | null> {
+): Promise<GeminiReply | null> {
   if (!apiKey) return null;
 
   const history = messages.slice(-16);
@@ -52,7 +69,8 @@ export async function generateGeminiReply(
   if (contents.length === 0) return null;
 
   const irritation = ["tranquilo", "um pouco impaciente", "impaciente", "irritado", "bem irritado", "no limite"][stats.irritation] ?? "tranquilo";
-  const context = `Estado atual da conversa: irritação ${irritation}; assuntos mencionados: ${stats.topicsDiscussed.join(", ") || "nenhum identificado"}; contradições apontadas: ${stats.contradictions}; pedidos de fonte: ${stats.sourceChallenges}. Mantenha continuidade com o histórico e varie suas respostas.`;
+  const currentDate = new Intl.DateTimeFormat("pt-BR", { dateStyle: "full" }).format(new Date());
+  const context = `Data atual: ${currentDate}. Estado da conversa: irritação ${irritation}; assuntos já discutidos: ${stats.topicsDiscussed.join(", ") || "nenhum identificado"}; contradições apontadas: ${stats.contradictions}; pedidos de fonte: ${stats.sourceChallenges}. Use a data para resolver “hoje”, “ontem” e atualidade. Mantenha continuidade com o histórico e varie suas respostas.`;
 
   let response: Response;
   try {
@@ -62,6 +80,7 @@ export async function generateGeminiReply(
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: `${persona}\n\n${context}` }] },
         contents,
+        tools: [{ google_search: {} }],
         generationConfig: {
           temperature: 0.8,
           maxOutputTokens: 600,
@@ -92,11 +111,24 @@ export async function generateGeminiReply(
     throw new GeminiError(data.error?.message ?? "A IA não conseguiu responder agora. Tente novamente.");
   }
 
-  const text = data.candidates?.[0]?.content?.parts
+  const candidate = data.candidates?.[0];
+  const text = candidate?.content?.parts
     ?.map((part) => part.text ?? "")
     .join("")
     .trim();
 
   if (!text) throw new GeminiError("A IA não gerou uma resposta. Tente reformular a mensagem.");
-  return text;
+
+  const sources = new Map<string, Source>();
+  for (const chunk of candidate?.groundingMetadata?.groundingChunks ?? []) {
+    const url = chunk.web?.uri;
+    if (!url || !/^https?:\/\//i.test(url)) continue;
+    sources.set(url, {
+      url,
+      title: chunk.web?.title?.trim() || new URL(url).hostname,
+    });
+    if (sources.size >= 5) break;
+  }
+
+  return { text, sources: [...sources.values()] };
 }

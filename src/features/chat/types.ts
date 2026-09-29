@@ -14,6 +14,12 @@ export type Message = {
   role: "tio" | "user";
   text: string;
   createdAt: number;
+  sources?: Source[];
+};
+
+export type Source = {
+  title: string;
+  url: string;
 };
 
 export type ConversationStats = {
@@ -37,5 +43,5 @@ export type ChatState = {
 export type ChatAction =
   | { type: "start" }
   | { type: "send"; text: string }
-  | { type: "reply"; text?: string }
+  | { type: "reply"; text?: string; sources?: Source[] }
   | { type: "clear" };
