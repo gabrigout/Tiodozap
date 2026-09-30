@@ -6,7 +6,7 @@ import Composer from "./components/Composer";
 import MessageBubble from "./components/MessageBubble";
 import TypingIndicator from "./components/TypingIndicator";
 import { chatReducer } from "./features/chat/chatReducer";
-import { generateGeminiReply, isGeminiEnabled } from "./features/chat/gemini";
+import { generateGeminiReply, GeminiError, isGeminiEnabled } from "./features/chat/gemini";
 import { pickConversationEnding } from "./features/chat/responses";
 import { clearSavedChat, loadChatState, saveChatState } from "./features/chat/storage";
 
@@ -21,11 +21,13 @@ export default function App() {
   const [activeToast, setActiveToast] = useState<string | null>(null);
   const [toastQueue, setToastQueue] = useState<string[]>([]);
   const [toastKey, setToastKey] = useState(0);
+  const [apiNotice, setApiNotice] = useState<string | null>(null);
+  const [failedMessageId, setFailedMessageId] = useState<string | null>(null);
   const scrollContainer = useRef<HTMLDivElement>(null);
   const lastAchievementCount = useRef(state.achievements.length);
   const latestMessage = state.messages[state.messages.length - 1];
   const lastUserMessage = latestMessage?.role === "user" ? latestMessage : null;
-  const isTyping = Boolean(lastUserMessage && !state.ended);
+  const isTyping = Boolean(lastUserMessage && !state.ended && lastUserMessage.id !== failedMessageId);
 
   useEffect(() => {
     saveChatState(state);
@@ -46,8 +48,13 @@ export default function App() {
         }
       } catch (error) {
         if (controller.signal.aborted) return;
-        console.warn("O TioMinion encerrou a conversa após uma falha temporária.");
-        dispatch({ type: "end", text: pickConversationEnding() });
+        if (error instanceof GeminiError && error.kind !== "configuration") {
+          console.warn("O TioMinion encerrou a conversa porque o Gemini está temporariamente indisponível.");
+          dispatch({ type: "end", text: pickConversationEnding() });
+          return;
+        }
+        setApiNotice("O tio travou numa configuração aqui. A conversa não acabou; tenta de novo daqui a pouco.");
+        setFailedMessageId(lastUserMessage.id);
       }
     }, isGeminiEnabled() ? 350 : 850);
     return () => {
@@ -82,13 +89,22 @@ export default function App() {
   }, []);
 
   function sendMessage(text: string) {
+    setApiNotice(null);
+    setFailedMessageId(null);
     dispatch({ type: "send", text });
+  }
+
+  function retryReply() {
+    setApiNotice(null);
+    setFailedMessageId(null);
   }
 
   function newConversation() {
     if (!window.confirm("Apagar esta conversa e começar outra?")) return;
     clearSavedChat();
     dispatch({ type: "clear" });
+    setApiNotice(null);
+    setFailedMessageId(null);
     setToastQueue([]);
     setActiveToast(null);
     lastAchievementCount.current = 0;
@@ -157,6 +173,12 @@ export default function App() {
                 <div className="day-divider"><span>HOJE, NO GRUPO</span></div>
                 {state.messages.map((message) => <MessageBubble key={message.id} message={message} />)}
                 {isTyping && <TypingIndicator />}
+                {apiNotice && (
+                  <div className="conversation-ended conversation-ended--retry" role="status">
+                    <span>{apiNotice}</span>
+                    <button type="button" onClick={retryReply}>Tentar novamente</button>
+                  </div>
+                )}
                 {state.ended && (
                   <div className="conversation-ended" role="status">
                     O TioMinion encerrou o expediente por aqui. Comece uma nova conversa se quiser chamar ele de volta.
