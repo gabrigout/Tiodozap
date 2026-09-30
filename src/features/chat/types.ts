@@ -9,6 +9,8 @@ export type Topic =
   | "dinheiro"
   | "aleatorio";
 
+export type ConversationEndReason = "api-limit" | "service-unavailable";
+
 export type Message = {
   id: string;
   role: "tio" | "user";
@@ -39,11 +41,12 @@ export type ChatState = {
   achievements: string[];
   replySequence: number;
   ended: boolean;
+  endedReason: ConversationEndReason | null;
 };
 
 export type ChatAction =
   | { type: "start" }
   | { type: "send"; text: string }
   | { type: "reply"; text?: string; sources?: Source[] }
-  | { type: "end"; text: string }
+  | { type: "end"; text: string; reason: ConversationEndReason }
   | { type: "clear" };
