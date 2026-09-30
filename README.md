@@ -18,7 +18,7 @@ Erros de configuração da chave ou do modelo não encerram o chat: aparece um a
 
 1. Gere uma chave no painel GroqCloud.
 2. No GitHub, abra **Settings → Secrets and variables → Actions → New repository secret**.
-3. Crie ou atualize o segredo `GROQ_API_KEY` com a chave.
+3. Crie ou atualize o segredo `apigroqparatiozap` com a chave.
 4. Execute novamente o workflow **Deploy to GitHub Pages**, na aba **Actions**.
 
 Para desenvolvimento local, copie `.env.example` para `.env.local`, preencha `VITE_GROQ_API_KEY` e rode `npm run dev`.
