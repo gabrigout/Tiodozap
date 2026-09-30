@@ -17,6 +17,7 @@ export const initialChatState: ChatState = {
   achievements: [],
   replySequence: 0,
   ended: false,
+  endedReason: null,
 };
 
 export function loadChatState(): ChatState {
@@ -40,9 +41,18 @@ export function loadChatState(): ChatState {
       "replySequence" in parsed &&
       typeof parsed.replySequence === "number"
     ) {
+      const legacyEnded =
+        "ended" in parsed && parsed.ended === true && !("endedReason" in parsed);
+      const endedReason =
+        "endedReason" in parsed &&
+        (parsed.endedReason === "api-limit" || parsed.endedReason === "service-unavailable")
+          ? parsed.endedReason
+          : null;
+
       return {
         ...parsed,
-        ended: "ended" in parsed && typeof parsed.ended === "boolean" ? parsed.ended : false,
+        ended: !legacyEnded && "ended" in parsed && parsed.ended === true && endedReason !== null,
+        endedReason: legacyEnded ? null : endedReason,
       } as ChatState;
     }
   } catch (error) {

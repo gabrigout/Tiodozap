@@ -66,6 +66,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         achievements: [...state.achievements, ...reply.achievements],
         replySequence: reply.replySequence,
         ended: true,
+        endedReason: action.reason,
       };
     }
     case "clear":

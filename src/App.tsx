@@ -50,7 +50,11 @@ export default function App() {
         if (controller.signal.aborted) return;
         if (error instanceof GeminiError && error.kind !== "configuration") {
           console.warn("O TioMinion encerrou a conversa porque o Gemini está temporariamente indisponível.");
-          dispatch({ type: "end", text: pickConversationEnding() });
+          dispatch({
+            type: "end",
+            text: pickConversationEnding(),
+            reason: error.kind === "quota" ? "api-limit" : "service-unavailable",
+          });
           return;
         }
         setApiNotice("O tio travou numa configuração aqui. A conversa não acabou; tenta de novo daqui a pouco.");
