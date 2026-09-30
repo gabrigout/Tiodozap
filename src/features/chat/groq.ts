@@ -1,12 +1,13 @@
 import type { ConversationStats, Message, Source } from "./types";
+import { ChatAIError, type ChatAIProvider } from "./providerTypes";
 
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY?.trim();
-const model = "gemini-3.8-flash";
-const endpoint = "https://generativelanguage.googleapis.com/v1beta/interactions";
+const apiKey = import.meta.env.VITE_GROQ_API_KEY?.trim();
+const model = "llama-3.3-70b-versatile";
+const endpoint = "https://api.groq.com/openai/v1/chat/completions";
 
 const persona = `Você interpreta TioMinion, um personagem individual e explicitamente fictício de sátira brasileira: um homem de 52 anos, palmeirense, que diz ter votado em Jair Bolsonaro e adora dar palpite no grupo da família. Essa biografia pertence apenas a este personagem, não representa homens com mais de 50 anos, palmeirenses, eleitores ou brasileiros em geral. Nunca se passe por uma pessoa real, Bolsonaro ou outra figura pública, nem invente falas atribuídas a pessoas reais.
 
-FLUXO MENTAL OBRIGATÓRIO (não explique este processo ao usuário): primeiro interprete a mensagem inteira; depois leia o histórico recente e resolva pronomes, alusões, datas relativas e referências como “isso”, “ele”, “aquele jogo” e “a notícia” pelo contexto. Identifique o que a pessoa de fato quer saber. Avalie se precisa de contexto atual ou se uma busca ajudaria a identificar/compreender o referente. A ferramenta Google Search está disponível: use-a quando houver dúvida relevante, acontecimento recente, referência ambígua que o histórico não resolva, notícia, declaração, pessoa, jogo, lei, preço ou fato possivelmente alterado. Não pesquise mensagens simples já compreendidas, como “sim”, “não”, “kkkk”, uma provocação ou continuação óbvia. Se o contexto não permitir identificar o referente, faça uma pergunta breve em vez de inventar quem é. Depois de compreender (e pesquisar se necessário), responda como TioMinion; a busca é bastidor para entender e verificar, não licença para falar como jornalista nem obrigação de citar fontes no texto.
+FLUXO MENTAL OBRIGATÓRIO (não explique este processo ao usuário): primeiro interprete a mensagem inteira; depois leia o histórico recente e resolva pronomes, alusões, datas relativas e referências como “isso”, “ele”, “aquele jogo” e “a notícia” pelo contexto. Identifique o que a pessoa de fato quer saber. Você não tem acesso à pesquisa na web: não afirme que pesquisou, não invente atualizações, fatos recentes nem fontes. Se a pergunta depender de algo atual que você não consiga verificar, seja transparente sobre a incerteza ou faça uma pergunta breve para esclarecer o referente. Não pesquise mensagens simples já compreendidas, como “sim”, “não”, “kkkk”, uma provocação ou continuação óbvia. Depois de compreender, responda como TioMinion; não explique o processo ao usuário.
 
 REGRA PRINCIPAL: seja coerente, atento e responda diretamente ao que acabou de ser perguntado. Leia o histórico; entenda a intenção e o contexto; depois responda à pergunta específica com uma ideia completa e relevante. Não mude de assunto, não introduza política, futebol ou frases sobre grupos sem relação com a mensagem. Não use bordões, analogias ou piadas aleatórias no lugar de uma resposta. Se a pergunta for clara, não enrole com uma pergunta de volta.
 
@@ -20,55 +21,34 @@ FONTES E FATOS: se pedirem uma fonte, responda especificamente ao pedido; não f
 
 Escreva normalmente de 2 a 5 frases curtas, focadas e conectadas à pergunta. Sem listas, a menos que o usuário peça. Não acrescente introduções como “vamos por partes” sem necessidade.`;
 
-type InteractionContent = {
-  type?: string;
-  text?: string;
-  annotations?: Array<{
-    type?: string;
-    url?: string;
-    title?: string;
-  }>;
-};
-
-type GeminiResponse = {
-  steps?: Array<{
-    type?: string;
-    content?: InteractionContent[];
+type GroqResponse = {
+  choices?: Array<{
+    message?: {
+      content?: string | null;
+    };
   }>;
   error?: { message?: string };
 };
 
-export type GeminiFailureKind = "quota" | "temporary" | "configuration";
-
-export class GeminiError extends Error {
-  constructor(
-    message: string,
-    readonly kind: GeminiFailureKind,
-  ) {
-    super(message);
-    this.name = "GeminiError";
-  }
-}
-
-export type GeminiReply = {
+export type GroqReply = {
   text: string;
   sources: Source[];
 };
 
-export function isGeminiEnabled() {
+export function isGroqEnabled() {
   return Boolean(apiKey);
 }
 
-export async function generateGeminiReply(
+export async function generateGroqReply(
   messages: Message[],
   stats: ConversationStats,
   signal: AbortSignal,
-): Promise<GeminiReply | null> {
+): Promise<GroqReply | null> {
   if (!apiKey) return null;
 
   const history = messages
     .filter((message) => message.id !== "welcome")
-    .slice(-16);
+    .slice(-24);
   if (history.length === 0) return null;
 
   const irritation = ["tranquilo", "um pouco impaciente", "impaciente", "irritado", "bem irritado", "no limite"][stats.irritation] ?? "tranquilo";
@@ -81,70 +61,57 @@ export async function generateGeminiReply(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model,
-        store: false,
-        system_instruction: `${persona}\n\n${context}`,
-        input: history
-          .map((message) => {
-            const speaker = message.role === "user" ? "Usuário" : "TioMinion";
-            return `<${speaker}>\n${message.text}\n</${speaker}>`;
-          })
-          .join("\n\n"),
-        tools: [{ type: "google_search" }],
+        messages: [
+          { role: "system", content: `${persona}\n\n${context}` },
+          ...history.map((message) => ({
+            role: message.role === "user" ? "user" : "assistant",
+            content: message.text,
+          })),
+        ],
+        temperature: 0.8,
+        max_completion_tokens: 350,
       }),
       signal,
     });
   } catch (error) {
     if (signal.aborted) throw error;
-    throw new GeminiError("A conexão caiu.", "temporary");
+    throw new ChatAIError("A conexão caiu.", "temporary");
   }
 
-  let data: GeminiResponse;
+  let data: GroqResponse;
   try {
-    data = (await response.json()) as GeminiResponse;
+    data = (await response.json()) as GroqResponse;
   } catch {
-    throw new GeminiError("A IA retornou uma resposta inválida.", "configuration");
+    throw new ChatAIError("A IA retornou uma resposta inválida.", "configuration");
   }
 
   if (!response.ok) {
     const errorText = data.error?.message ?? "";
-    const isQuota = response.status === 429 || /quota|rate.?limit|resource.?exhausted|token limit/i.test(errorText);
+    const isQuota =
+      response.status === 429 ||
+      /quota|rate.?limit|resource.?exhausted|token limit/i.test(errorText);
     const isTemporary = [408, 425, 500, 502, 503, 504].includes(response.status);
     if (isQuota) {
-      throw new GeminiError("O Gemini atingiu o limite de uso.", "quota");
+      throw new ChatAIError("O Groq atingiu o limite de uso.", "quota");
     }
     if (isTemporary) {
-      throw new GeminiError("O Gemini está temporariamente indisponível.", "temporary");
+      throw new ChatAIError("O Groq está temporariamente indisponível.", "temporary");
     }
-    throw new GeminiError("A configuração do Gemini precisa ser conferida.", "configuration");
+    throw new ChatAIError("A configuração do Groq precisa ser conferida.", "configuration");
   }
 
-  const output = data.steps?.filter((step) => step.type === "model_output") ?? [];
-  const text = output
-    .flatMap((step) => step.content ?? [])
-    .filter((content) => content.type === "text")
-    .map((content) => content.text ?? "")
-    .join("")
-    .trim();
+  const text = data.choices?.[0]?.message?.content?.trim() ?? "";
 
-  if (!text) throw new GeminiError("A IA não retornou uma resposta.", "configuration");
+  if (!text) throw new ChatAIError("A IA não retornou uma resposta.", "configuration");
 
-  const sources = new Map<string, Source>();
-  for (const content of output.flatMap((step) => step.content ?? [])) {
-    for (const annotation of content.annotations ?? []) {
-      const url = annotation.type === "url_citation" ? annotation.url : undefined;
-      if (!url || !/^https?:\/\//i.test(url)) continue;
-      sources.set(url, {
-        url,
-        title: annotation.title?.trim() || new URL(url).hostname,
-      });
-      if (sources.size >= 5) break;
-    }
-    if (sources.size >= 5) break;
-  }
-
-  return { text, sources: [...sources.values()] };
+  return { text, sources: [] };
 }
+
+export const groqProvider: ChatAIProvider = {
+  isEnabled: isGroqEnabled,
+  generateReply: generateGroqReply,
+};

@@ -46,6 +46,27 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         stats: reply.stats,
         achievements: [...state.achievements, ...reply.achievements],
         replySequence: reply.replySequence,
+        apiPaused: state.apiPaused || action.pauseApi === true,
+        apiRetrySnapshot: action.retryable
+          ? {
+              stats: state.stats,
+              achievements: state.achievements,
+              replySequence: state.replySequence,
+            }
+          : null,
+      };
+    }
+    case "retry": {
+      if (!state.apiRetrySnapshot || state.messages[state.messages.length - 1]?.role !== "tio") {
+        return state;
+      }
+      return {
+        ...state,
+        messages: state.messages.slice(0, -1),
+        stats: state.apiRetrySnapshot.stats,
+        achievements: state.apiRetrySnapshot.achievements,
+        replySequence: state.apiRetrySnapshot.replySequence,
+        apiRetrySnapshot: null,
       };
     }
     case "end": {
