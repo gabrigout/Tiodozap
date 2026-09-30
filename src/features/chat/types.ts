@@ -42,11 +42,18 @@ export type ChatState = {
   replySequence: number;
   ended: boolean;
   endedReason: ConversationEndReason | null;
+  apiPaused: boolean;
+  apiRetrySnapshot: {
+    stats: ConversationStats;
+    achievements: string[];
+    replySequence: number;
+  } | null;
 };
 
 export type ChatAction =
   | { type: "start" }
   | { type: "send"; text: string }
-  | { type: "reply"; text?: string; sources?: Source[] }
+  | { type: "reply"; text?: string; sources?: Source[]; pauseApi?: boolean; retryable?: boolean }
+  | { type: "retry" }
   | { type: "end"; text: string; reason: ConversationEndReason }
   | { type: "clear" };

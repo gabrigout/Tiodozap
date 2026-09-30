@@ -18,6 +18,8 @@ export const initialChatState: ChatState = {
   replySequence: 0,
   ended: false,
   endedReason: null,
+  apiPaused: false,
+  apiRetrySnapshot: null,
 };
 
 export function loadChatState(): ChatState {
@@ -41,8 +43,7 @@ export function loadChatState(): ChatState {
       "replySequence" in parsed &&
       typeof parsed.replySequence === "number"
     ) {
-      const legacyEnded =
-        "ended" in parsed && parsed.ended === true && !("endedReason" in parsed);
+      const wasEnded = "ended" in parsed && parsed.ended === true;
       const endedReason =
         "endedReason" in parsed &&
         (parsed.endedReason === "api-limit" || parsed.endedReason === "service-unavailable")
@@ -51,8 +52,12 @@ export function loadChatState(): ChatState {
 
       return {
         ...parsed,
-        ended: !legacyEnded && "ended" in parsed && parsed.ended === true && endedReason !== null,
-        endedReason: legacyEnded ? null : endedReason,
+        ended: false,
+        endedReason: null,
+        apiPaused:
+          ("apiPaused" in parsed && parsed.apiPaused === true) ||
+          (wasEnded && endedReason === "api-limit"),
+        apiRetrySnapshot: null,
       } as ChatState;
     }
   } catch (error) {

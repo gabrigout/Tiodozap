@@ -5,8 +5,11 @@ import ChatHeader from "./components/ChatHeader";
 import Composer from "./components/Composer";
 import MessageBubble from "./components/MessageBubble";
 import TypingIndicator from "./components/TypingIndicator";
+import { ChatAIError, chatAIProvider } from "./features/chat/aiProvider";
 import { chatReducer } from "./features/chat/chatReducer";
-import { generateGeminiReply, GeminiError, isGeminiEnabled } from "./features/chat/gemini";
+import { getNextConversationStats } from "./features/chat/engine";
+import { cacheReply, getCachedReply } from "./features/chat/replyCache";
+import { getQuickReply } from "./features/chat/shortReplies";
 import { pickConversationEnding } from "./features/chat/responses";
 import { clearSavedChat, loadChatState, saveChatState } from "./features/chat/storage";
 
@@ -22,12 +25,11 @@ export default function App() {
   const [toastQueue, setToastQueue] = useState<string[]>([]);
   const [toastKey, setToastKey] = useState(0);
   const [apiNotice, setApiNotice] = useState<string | null>(null);
-  const [failedMessageId, setFailedMessageId] = useState<string | null>(null);
   const scrollContainer = useRef<HTMLDivElement>(null);
   const lastAchievementCount = useRef(state.achievements.length);
   const latestMessage = state.messages[state.messages.length - 1];
   const lastUserMessage = latestMessage?.role === "user" ? latestMessage : null;
-  const isTyping = Boolean(lastUserMessage && !state.ended && lastUserMessage.id !== failedMessageId);
+  const isTyping = Boolean(lastUserMessage && !state.ended);
 
   useEffect(() => {
     saveChatState(state);
@@ -36,36 +38,71 @@ export default function App() {
   useEffect(() => {
     if (!isTyping || !lastUserMessage) return;
     const controller = new AbortController();
+    const quickReply = getQuickReply(lastUserMessage.text, state.replySequence);
+    const cachedReply = quickReply ? null : getCachedReply(lastUserMessage.text);
+    const shouldCallAI =
+      !quickReply && !cachedReply && !state.apiPaused && chatAIProvider.isEnabled();
+    const responseDelay = shouldCallAI ? 5000 + Math.floor(Math.random() * 5001) : 0;
     const timeout = window.setTimeout(async () => {
-      try {
-        const reply = await generateGeminiReply(state.messages, state.stats, controller.signal);
-        if (!controller.signal.aborted) {
-          dispatch({
-            type: "reply",
-            text: reply?.text,
-            sources: reply?.sources,
-          });
-        }
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        if (error instanceof GeminiError && error.kind !== "configuration") {
-          console.warn("O TioMinion encerrou a conversa porque o Gemini está temporariamente indisponível.");
-          dispatch({
-            type: "end",
-            text: pickConversationEnding(),
-            reason: error.kind === "quota" ? "api-limit" : "service-unavailable",
-          });
+      if (quickReply) {
+        dispatch({ type: "reply", text: quickReply });
+        return;
+      }
+      if (cachedReply) {
+        dispatch({ type: "reply", text: cachedReply.text, sources: cachedReply.sources });
+        return;
+      }
+      if (!state.apiPaused && chatAIProvider.isEnabled()) {
+        try {
+          const reply = await chatAIProvider.generateReply(
+            state.messages,
+            getNextConversationStats(state),
+            controller.signal,
+          );
+          if (!controller.signal.aborted && reply) {
+            cacheReply(lastUserMessage.text, reply);
+            dispatch({
+              type: "reply",
+              text: reply.text,
+              sources: reply.sources,
+            });
+            return;
+          }
+        } catch (error) {
+          if (controller.signal.aborted) return;
+          console.warn(
+            "O TioMinion não conseguiu acessar a resposta da IA.",
+            error instanceof ChatAIError ? error.kind : error,
+          );
+          if (error instanceof ChatAIError && error.kind === "quota") {
+            dispatch({
+              type: "reply",
+              text: pickConversationEnding(),
+              pauseApi: true,
+            });
+            return;
+          }
+          setApiNotice("A IA não respondeu desta vez. O tio vai improvisar; você pode continuar ou tentar de novo.");
+          dispatch({ type: "reply", retryable: true });
           return;
         }
-        setApiNotice("O tio travou numa configuração aqui. A conversa não acabou; tenta de novo daqui a pouco.");
-        setFailedMessageId(lastUserMessage.id);
       }
-    }, isGeminiEnabled() ? 350 : 850);
+
+      if (controller.signal.aborted) return;
+      dispatch({ type: "reply" });
+    }, responseDelay);
     return () => {
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [isTyping, lastUserMessage?.id, state.messages, state.stats]);
+  }, [
+    isTyping,
+    lastUserMessage?.id,
+    state.apiPaused,
+    state.messages,
+    state.replySequence,
+    state.stats,
+  ]);
 
   useEffect(() => {
     const container = scrollContainer.current;
@@ -94,13 +131,12 @@ export default function App() {
 
   function sendMessage(text: string) {
     setApiNotice(null);
-    setFailedMessageId(null);
     dispatch({ type: "send", text });
   }
 
   function retryReply() {
     setApiNotice(null);
-    setFailedMessageId(null);
+    dispatch({ type: "retry" });
   }
 
   function newConversation() {
@@ -108,7 +144,6 @@ export default function App() {
     clearSavedChat();
     dispatch({ type: "clear" });
     setApiNotice(null);
-    setFailedMessageId(null);
     setToastQueue([]);
     setActiveToast(null);
     lastAchievementCount.current = 0;
@@ -146,7 +181,7 @@ export default function App() {
           <ChatHeader started={state.started} onNewConversation={newConversation} />
           <div className="chat-context">
             <span className="chat-context__icon">✳</span>
-            <span>{isGeminiEnabled() ? "Conversa com IA · TioMinion é um personagem fictício de humor" : "Modo de demonstração · Configure a IA para conversas com contexto"}</span>
+            <span>{chatAIProvider.isEnabled() && !state.apiPaused ? "Conversa com IA · TioMinion é um personagem fictício de humor" : "Modo de conversa local · TioMinion é um personagem fictício de humor"}</span>
           </div>
           <div className="conversation" ref={scrollContainer} aria-live="polite">
             {!state.started ? (
@@ -177,10 +212,14 @@ export default function App() {
                 <div className="day-divider"><span>HOJE, NO GRUPO</span></div>
                 {state.messages.map((message) => <MessageBubble key={message.id} message={message} />)}
                 {isTyping && <TypingIndicator />}
-                {apiNotice && (
+                {(apiNotice || state.apiPaused) && (
                   <div className="conversation-ended conversation-ended--retry" role="status">
-                    <span>{apiNotice}</span>
-                    <button type="button" onClick={retryReply}>Tentar novamente</button>
+                    <span>{state.apiPaused
+                      ? "A IA pausou por limite de uso; o tio segue no improviso até você começar uma nova conversa."
+                      : apiNotice}</span>
+                    {!state.apiPaused && (
+                      <button type="button" onClick={retryReply}>Tentar IA de novo</button>
+                    )}
                   </div>
                 )}
                 {state.ended && (

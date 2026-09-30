@@ -63,7 +63,7 @@ const topicPatterns: Array<{ topic: Topic; patterns: RegExp }> = [
 const pick = (items: string[], sequence: number) =>
   items[sequence % items.length];
 
-export function createReply(state: ChatState): ReplyResult {
+function analyzeMessage(state: Pick<ChatState, "messages" | "stats">) {
   const lastUserMessage = [...state.messages].reverse().find((message) => message.role === "user");
   const text = lastUserMessage?.text ?? "";
   const normalized = normalize(text);
@@ -111,6 +111,35 @@ export function createReply(state: ChatState): ReplyResult {
     currentTopic: detectedTopic ?? state.stats.currentTopic,
   };
 
+  return {
+    normalized,
+    sourceChallenge,
+    contradiction,
+    provocation,
+    explicitSubjectChange,
+    mentionsPt,
+    detectedTopic,
+    diverted,
+    nextStats,
+  };
+}
+
+export function getNextConversationStats(state: Pick<ChatState, "messages" | "stats">) {
+  return analyzeMessage(state).nextStats;
+}
+
+export function createReply(state: ChatState): ReplyResult {
+  const {
+    normalized,
+    sourceChallenge,
+    contradiction,
+    provocation,
+    explicitSubjectChange,
+    mentionsPt,
+    detectedTopic,
+    diverted,
+    nextStats,
+  } = analyzeMessage(state);
   const sequence = state.replySequence;
   const nextAchievements: string[] = [];
   const award = (id: string) => {
@@ -124,9 +153,9 @@ export function createReply(state: ChatState): ReplyResult {
   if (mentionsPt) award("pt-detour");
   if (contradiction) award("contradiction");
   if (diverted) award("subject-change");
-  if (irritation >= 4) award("not-discussing");
+  if (nextStats.irritation >= 4) award("not-discussing");
   if (nextStats.messageCount >= 8) award("family-debate");
-  if (irritation >= 5) award("too-far");
+  if (nextStats.irritation >= 5) award("too-far");
 
   let response: string;
   if (sourceChallenge) {
@@ -145,8 +174,8 @@ export function createReply(state: ChatState): ReplyResult {
     response = pick(genericResponses, sequence);
   }
 
-  if (irritation > 0) {
-    const prefix = irritationPrefixes[irritation];
+  if (nextStats.irritation > 0) {
+    const prefix = irritationPrefixes[nextStats.irritation];
     response = prefix + response[0].toLocaleLowerCase("pt-BR") + response.slice(1);
   }
 
